@@ -9,7 +9,7 @@ import { addTransaction } from '../store/slices/transactionSlice';
 
 const SocketContext = createContext();
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || window.location.origin;
 
 export const useSocket = () => {
   const context = useContext(SocketContext);

@@ -8,11 +8,10 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  ECR_REPOSITORY_FRONTEND: neobank-cloud-frontend
-  ECR_REPOSITORY_BACKEND: neobank-cloud-backend
-  ECS_CLUSTER: neobank-cloud-dev-cluster
-  ECS_SERVICE_BACKEND: neobank-cloud-backend
-  ECS_SERVICE_FRONTEND: neobank-cloud-frontend
+  ECR_REPOSITORY_FRONTEND: neobank-frontend
+  ECR_REPOSITORY_BACKEND: neobank-backend
+  EKS_CLUSTER_NAME: neobank-cluster
+  K8S_NAMESPACE: neobank
 
 jobs:
   test:
@@ -48,6 +47,8 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    outputs:
+      ecr_registry: ${{ steps.login-ecr.outputs.registry }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -98,7 +99,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
   deploy:
-    name: Deploy to ECS
+    name: Deploy to EKS
     needs: build-and-push
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -117,34 +118,86 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Deploy Backend to ECS
+      - name: Setup kubeconfig
         run: |
-          aws ecs update-service \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --service ${{ env.ECS_SERVICE_BACKEND }} \
-            --force-new-deployment
+          aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
 
-      - name: Deploy Frontend to ECS
+      - name: Create namespace if not exists
+        run: kubectl create namespace ${{ env.K8S_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Apply Kubernetes Secrets
         run: |
-          aws ecs update-service \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --service ${{ env.ECS_SERVICE_FRONTEND }} \
-            --force-new-deployment
+          cat <<EOF | kubectl apply -f -
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: neobank-secrets
+            namespace: ${{ env.K8S_NAMESPACE }}
+          type: Opaque
+          stringData:
+            DATABASE_URL: "postgresql://postgres:${{ secrets.DB_PASSWORD }}@postgres-service:5432/neobank_cloud"
+            REDIS_URL: "redis://redis-service:6379"
+            JWT_SECRET: "${{ secrets.JWT_SECRET }}"
+            JWT_REFRESH_SECRET: "${{ secrets.JWT_REFRESH_SECRET }}"
+            JWT_EXPIRATION: "15m"
+            JWT_REFRESH_EXPIRATION: "7d"
+          EOF
 
-      - name: Wait for Deployment
-        run: sleep 90
+      - name: Apply ConfigMap
+        run: kubectl apply -f k8s/configmap.yaml
 
-      - name: Health Check Backend
+      - name: Deploy PostgreSQL
         run: |
-          ALB_DNS=$(aws elbv2 describe-load-balancers \
-            --names "neobank-cloud-dev-alb" \
-            --query "LoadBalancers[0].DNSName" \
-            --output text)
-          echo "ALB DNS: $ALB_DNS"
+          kubectl apply -f k8s/postgres-statefulset.yaml
+          kubectl apply -f k8s/postgres-service.yaml
+          echo "Waiting for PostgreSQL to be ready..."
+          kubectl wait --for=condition=ready pod -l app=postgres -n ${{ env.K8S_NAMESPACE }} --timeout=120s || true
+
+      - name: Deploy Redis
+        run: |
+          kubectl apply -f k8s/redis-deployment.yaml
+          kubectl apply -f k8s/redis-service.yaml
+          echo "Waiting for Redis to be ready..."
+          kubectl wait --for=condition=ready pod -l app=redis -n ${{ env.K8S_NAMESPACE }} --timeout=60s || true
+
+      - name: Deploy Backend
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          sed -i "s|ECR_REGISTRY|${ECR_REGISTRY}|g" k8s/backend-deployment.yaml
+          kubectl apply -f k8s/backend-deployment.yaml
+          kubectl apply -f k8s/backend-service.yaml
+          echo "Waiting for Backend to be ready..."
+          kubectl wait --for=condition=ready pod -l app=backend -n ${{ env.K8S_NAMESPACE }} --timeout=120s || true
+          git checkout k8s/backend-deployment.yaml
+
+      - name: Deploy Frontend
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          sed -i "s|ECR_REGISTRY|${ECR_REGISTRY}|g" k8s/frontend-deployment.yaml
+          kubectl apply -f k8s/frontend-deployment.yaml
+          kubectl apply -f k8s/frontend-service.yaml
+          echo "Waiting for Frontend to be ready..."
+          kubectl wait --for=condition=ready pod -l app=frontend -n ${{ env.K8S_NAMESPACE }} --timeout=120s || true
+          git checkout k8s/frontend-deployment.yaml
+
+      - name: Get Load Balancer URL
+        run: |
+          echo "Waiting for LoadBalancer to be provisioned..."
+          sleep 30
+          LB_URL=$(kubectl get svc frontend-service -n ${{ env.K8S_NAMESPACE }} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          echo "Application is live at: http://$LB_URL"
+          echo "LB_URL=$LB_URL" >> $GITHUB_ENV
+
+      - name: Health Check
+        run: |
           for i in $(seq 1 10); do
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://$ALB_DNS/health" || true)
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://${{ env.LB_URL }}/health" || true)
             if [ "$HTTP_CODE" = "200" ]; then
-              echo "Backend health check passed!"
+              echo "Health check passed!"
               exit 0
             fi
             echo "Attempt $i: HTTP $HTTP_CODE - retrying in 15s..."
@@ -155,17 +208,15 @@ jobs:
 
       - name: Notify Success
         if: success()
-        run: echo "Deployment successful! App is live at the ALB DNS."
+        run: |
+          echo "Deployment successful!"
+          echo "Frontend: http://${{ env.LB_URL }}"
+          echo "Backend API: http://${{ env.LB_URL }}/api"
+          echo "API Docs: http://${{ env.LB_URL }}/api-docs"
 
       - name: Rollback on Failure
         if: failure()
         run: |
           echo "Deployment failed! Rolling back..."
-          aws ecs update-service \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --service ${{ env.ECS_SERVICE_BACKEND }} \
-            --force-new-deployment
-          aws ecs update-service \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --service ${{ env.ECS_SERVICE_FRONTEND }} \
-            --force-new-deployment
+          kubectl rollout undo deployment/backend -n ${{ env.K8S_NAMESPACE }} || true
+          kubectl rollout undo deployment/frontend -n ${{ env.K8S_NAMESPACE }} || true
