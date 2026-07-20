@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useSelector } from 'react-redux';
 import {
   Wallet,
   TrendingUp,
@@ -44,6 +45,15 @@ const quickActions = [
 
 const Dashboard = () => {
   const [showBalance, setShowBalance] = React.useState(true);
+  const { user } = useSelector((state) => state.auth);
+  const firstName = user?.name?.split(' ')[0] || 'User';
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  };
 
   return (
     <div className="page-transition space-y-6">
@@ -51,7 +61,7 @@ const Dashboard = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white font-display">
-            Good Morning, Shriram 👋
+            {getGreeting()}, {firstName} 👋
           </h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">
             Here's your financial overview

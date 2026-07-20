@@ -23,7 +23,7 @@ export const useAuth = () => {
       dispatch(loginStart());
       try {
         const response = await authService.login(credentials);
-        dispatch(loginSuccess(response));
+        dispatch(loginSuccess(response.data));
         toast.success('Login successful!');
         navigate('/dashboard');
         return response;

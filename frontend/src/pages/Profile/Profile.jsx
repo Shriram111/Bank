@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { useSelector } from 'react-redux';
 import { User, Mail, Phone, MapPin, Shield, FileText, Camera, Edit3, CheckCircle, Upload, Calendar, CreditCard } from 'lucide-react';
 
 const Profile = () => {
+  const { user } = useSelector((state) => state.auth);
   const [isEditing, setIsEditing] = useState(false);
   const [profile, setProfile] = useState({
-    name: 'Shriram Kumar',
-    email: 'ankit.sharma@email.com',
-    phone: '+91 98765 43210',
+    name: user?.name || 'User',
+    email: user?.email || '',
+    phone: user?.phone || '',
     dob: '1992-05-15',
     address: '12 MG Road, Sector 62, Noida, UP - 201301',
     pan: 'ABCDE1234F',
