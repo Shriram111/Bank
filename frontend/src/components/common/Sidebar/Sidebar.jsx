@@ -21,7 +21,6 @@ import {
   Landmark,
   Smartphone,
   Receipt,
-  Receipt,
   QrCode,
   Calculator,
   FileText,
