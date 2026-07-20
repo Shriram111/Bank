@@ -8,7 +8,7 @@ const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'neobank-cloud-refr
 
 export class AuthController {
   private users: any[] = [
-    { id: '1', name: 'Ankit Kumar', email: 'ankit@neobank.cloud', phone: '9876543210', password: bcrypt.hashSync('password123', 10), role: 'ADMIN', isVerified: true, avatar: null },
+    { id: '1', name: 'Shriram Kumar', email: 'shriram@neobank.cloud', phone: '9876543210', password: bcrypt.hashSync('password123', 10), role: 'ADMIN', isVerified: true, avatar: null },
     { id: '2', name: 'Priya Sharma', email: 'priya@neobank.cloud', phone: '9876543211', password: bcrypt.hashSync('password123', 10), role: 'CUSTOMER', isVerified: true, avatar: null },
   ];
 

@@ -5,7 +5,7 @@ import { User, Mail, Phone, MapPin, Shield, FileText, Camera, Edit3, CheckCircle
 const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [profile, setProfile] = useState({
-    name: 'Ankit Sharma',
+    name: 'Shriram Kumar',
     email: 'ankit.sharma@email.com',
     phone: '+91 98765 43210',
     dob: '1992-05-15',

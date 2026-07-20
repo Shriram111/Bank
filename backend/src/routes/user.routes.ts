@@ -16,7 +16,7 @@ router.get('/dashboard', authenticate, authorize('ADMIN', 'SUPER_ADMIN'), (req, 
 
 router.get('/users', authenticate, authorize('ADMIN', 'SUPER_ADMIN'), (req, res) => {
   res.json({ success: true, data: [
-    { id: '1', name: 'Ankit Kumar', email: 'ankit@neobank.cloud', role: 'ADMIN', status: 'ACTIVE', lastLogin: '2026-07-15' },
+    { id: '1', name: 'Shriram Kumar', email: 'shriram@neobank.cloud', role: 'ADMIN', status: 'ACTIVE', lastLogin: '2026-07-15' },
     { id: '2', name: 'Priya Sharma', email: 'priya@neobank.cloud', role: 'CUSTOMER', status: 'ACTIVE', lastLogin: '2026-07-14' },
   ]});
 });
