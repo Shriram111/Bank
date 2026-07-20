@@ -11,6 +11,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import App from './App';
 import { store } from './store';
 import { ThemeContextProvider } from './context/ThemeContext';
+import { SocketProvider } from './context/SocketContext';
 import { muiTheme } from './theme/muiTheme';
 import './index.css';
 
@@ -32,6 +33,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <ThemeProvider theme={muiTheme}>
             <ThemeContextProvider>
               <BrowserRouter>
+                <SocketProvider>
                 <CssBaseline />
                 <App />
                 <Toaster
@@ -58,6 +60,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
                     },
                   }}
                 />
+                </SocketProvider>
               </BrowserRouter>
             </ThemeContextProvider>
           </ThemeProvider>
