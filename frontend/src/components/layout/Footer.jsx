@@ -164,17 +164,17 @@ const Footer = () => {
             </div>
             <div className="flex items-center gap-4">
               <img
-                src="/images/rbi-logo.png"
+                src="/images/rbi-logo.svg"
                 alt="RBI"
                 className="h-8 opacity-50 grayscale"
               />
               <img
-                src="/images/pci-logo.png"
+                src="/images/pci-logo.svg"
                 alt="PCI DSS"
                 className="h-8 opacity-50 grayscale"
               />
               <img
-                src="/images/iso-logo.png"
+                src="/images/iso-logo.svg"
                 alt="ISO"
                 className="h-8 opacity-50 grayscale"
               />
