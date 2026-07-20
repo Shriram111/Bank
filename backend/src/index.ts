@@ -29,7 +29,7 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: process.env.FRONTEND_URL || '*',
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -38,10 +38,13 @@ const io = new Server(httpServer, {
 // Make io accessible to routes
 app.set('io', io);
 
+// Trust proxy (required behind NLB/load balancer)
+app.set('trust proxy', 1);
+
 // Security Middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: process.env.FRONTEND_URL || '*',
   credentials: true,
 }));
 
