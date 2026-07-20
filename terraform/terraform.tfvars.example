@@ -1,0 +1,4 @@
+aws_region   = "us-east-1"
+environment  = "dev"
+project_name = "neobank-cloud"
+db_password  = "CHANGE_ME_strong_password_123"
